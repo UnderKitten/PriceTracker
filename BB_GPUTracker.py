@@ -1,33 +1,46 @@
 import requests
 import os
+import smtplib
+import ssl
+import time
 from bs4 import BeautifulSoup
 
-# https://www.bestbuy.ca/en-ca/product/evga-geforce-rtx-3080-xc3-ultra-gaming-10gb-gddr6x-video-card/15084753
 # Product Title = productName_3nyxM
 email = ''
-
+product_list = ''
 os.chdir(r'D:\python\PriceTracker')
 
 
 def main():
     print("Welcome to the Best Buy GPU Tracker!")
+    global email
     email = load_email()
-    # main_menu()
+    global product_list
+    product_list = load_products()
+    time.sleep(2)
+    main_menu()
 
 
 def main_menu():
-    # option = int(input("""Please choose an option:\n
-    # 1 - Track an item \n"""))
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36"}
+
+    # option = int(input("""Please choose an option:\n
+    # 1 - Track an item \n"""))
     # Let's access URL
-    while True:
+    
+    for i in range(5):
+        for x in range(len(product_list)):
+            process_page(product_list[x], headers)    
+        time.sleep(10)
+        print('\n\n')
+    """while True:
         url = input("Enter URL: ")
         if url == "exit":
             break
         else:
-            process_page(url, headers)
-    #url = "https://www.bestbuy.ca/en-ca/product/evga-geforce-rtx-3080-xc3-ultra-gaming-10gb-gddr6x-video-card/15084753"
+            process_page(url, headers)"""
+    # url = "https://www.bestbuy.ca/en-ca/product/evga-geforce-rtx-3080-xc3-ultra-gaming-10gb-gddr6x-video-card/15084753"
 
 
 def process_page(url, headers):
@@ -35,21 +48,23 @@ def process_page(url, headers):
     bs = BeautifulSoup(page.content, 'html.parser')
 
     product_title = bs.find_all(class_="productName_3nyxM")
-    print(product_title[0].get_text())
+    title_text = product_title[0].get_text()
+    #print(product_title[0].get_text())
 
     product_price = bs.find_all(class_="large_3aP7Z")
-    print(product_price[0].get_text())
+    price_text = product_price[0].get_text()
+    #print(product_price[0].get_text())
 
     product_availability = bs.find_all(class_="availabilityMessage_ig-s5")
-    product_availability_text = str(product_availability[0].get_text().lower())
+    product_availability_text = product_availability[0].get_text().lower()
 
     if product_availability_text == "available to ship":
-        print("Available to Ship")
+        status = "Available to Ship"
     elif product_availability_text == "coming soon":
-        print("Coming Soon")
+        status = "Coming Soon"
     else:
-        print("No info")
-    print('')
+        status = "No info"
+    print(f'{title_text}           {price_text}     {status}')
 
 
 def load_email():
@@ -57,7 +72,11 @@ def load_email():
     user_info = doc.read()
     user_info = user_info.split('+')
     return user_info
-
+def load_products():
+    doc = open('products.txt')
+    products = doc.read()
+    products = products.split('\n')
+    return products
 
 if __name__ == '__main__':
     main()
