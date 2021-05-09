@@ -1,17 +1,19 @@
 import requests
 import os
 import discord
-#from dotenv import load_dotenv
-from Discord_Bot import disc_post
-#import smtplib
-#import ssl
+from discord import Webhook, RequestsWebhookAdapter
+from dotenv import load_dotenv
 import time
 from bs4 import BeautifulSoup
 
 # Product Title = productName_3nyxM
 email = ''
 product_list = ''
-os.chdir(r'D:\python\PriceTracker')
+
+load_dotenv()
+WEBHOOK = os.getenv('DISCORD_WEBHOOK')
+DIR = os.getenv('DIR')
+os.chdir(DIR)
 
 
 def main():
@@ -52,12 +54,18 @@ def process_page(url, headers):
 
     if product_availability_text == "available to ship":
         status = "Available to Ship"
-        disc_post(title_text, url)
+        discord_post(title_text, url)
     elif product_availability_text == "coming soon":
         status = "Coming Soon"
     else:
         status = "No info"
+
     print(f'{title_text}           {price_text}     {status}')
+
+
+def discord_post(title, url):
+    webhook = Webhook.from_url(WEBHOOK, adapter=RequestsWebhookAdapter())
+    webhook.send(f"@everyone {title}\n{url}")
 
 
 def load_products():
