@@ -1,3 +1,3 @@
 # PriceTracker
 
-Tracking Amazon prices for now.
+Tracking Best Buy prices for now.
