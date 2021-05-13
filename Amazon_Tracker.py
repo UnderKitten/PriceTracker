@@ -1,9 +1,12 @@
+# python D:\python\PriceTracker\BB_GPUTracker.py
 import requests
 import os
+import pandas as pd
 from discord import Webhook, RequestsWebhookAdapter
 from dotenv import load_dotenv
 import time
 from bs4 import BeautifulSoup
+import concurrent.futures
 
 # Product Title = productName_3nyxM
 product_list = []
@@ -14,42 +17,29 @@ DIR = os.getenv('DIR')
 USER_AGENT = os.getenv('USER_AGENT')
 os.chdir(DIR)
 
+headers = {
+        "User-Agent": USER_AGENT}
 
 def main():
-    print("Welcome to the Best Buy GPU Tracker!")
+    print("Welcome to the Amazon Tracker!")
 
     # Load URL List of products
-    global list_3080
-    list_3080 = load_products('3080.txt')
-
-    global list_3070
-    list_3070 = load_products('3070.txt')
-
-    global list_3060ti
-    list_3060ti = load_products('3060ti.txt')
-
-    global list_1660
-    list_1660 = load_products('1660.txt')
-
+    global product_list
+    product_list = load_products()
     time.sleep(2)
     access_url()
 
 
 def access_url():
-    headers = {
-        "User-Agent": USER_AGENT}
-
     # Let's access URLs
     while True:
-        for x in range(len(product_list)):
-            for y in product_list[x]:
-                process_page(y, headers)
-            print('')
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            executor.map(process_page, product_list)
         time.sleep(5)
         print('--------------------------------------------------------------------')
 
 
-def process_page(url, headers):
+def process_page(url):
     # Process HTML page
     page = requests.get(url, headers=headers)
     bs = BeautifulSoup(page.content, 'html.parser')
@@ -89,8 +79,8 @@ def discord_post(title, url):
     # load product list from the .txt file
 
 
-def load_products(list):
-    doc = open(list)
+def load_products():
+    doc = open('BB_list.txt')
     products = doc.read()
     products = products.split('\n')
     product_list.append(products)
