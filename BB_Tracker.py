@@ -1,6 +1,7 @@
 # python D:\python\PriceTracker\BB_Tracker.py
 import requests
-import os
+import os.path
+import csv
 from discord import Webhook, RequestsWebhookAdapter
 from dotenv import load_dotenv
 import time
@@ -8,7 +9,8 @@ from bs4 import BeautifulSoup
 import concurrent.futures
 
 # Product Title = productName_3nyxM
-product_list = []
+product_list = {}
+file_name = 'BB_list.csv'
 
 load_dotenv()
 WEBHOOK = os.getenv('DISCORD_WEBHOOK')
@@ -17,16 +19,33 @@ USER_AGENT = os.getenv('USER_AGENT')
 os.chdir(DIR)
 
 headers = {
-        "User-Agent": USER_AGENT}
+    "User-Agent": USER_AGENT}
+
 
 def main():
-    print("Welcome to the Best Buy GPU Tracker!")
-
     # Load URL List of products
-    global product_list
-    product_list = load_products()
-    time.sleep(2)
-    access_url()
+    load_products()
+    # time.sleep(2)
+    # access_url()
+    menu()
+
+
+
+def menu():
+    # Main Menu
+    print("Welcome to Best Buy CA price tracker")
+    print("Please choose one of the options")
+    menu_options = "A - Add products to the tracking list\nR - Delete products from the menu list\nS - Start tracking\nAny other key - Exit the script\nYour option: "
+    option = input(menu_options)
+    option = option.lower()
+    if option == 'a':
+        add_products()
+    elif option == 'r':
+        pass
+    elif option == 's':
+        pass
+    else:
+        exit()
 
 
 def access_url():
@@ -38,7 +57,7 @@ def access_url():
         print('--------------------------------------------------------------------')
 
 
-def process_page(url):
+def process_page(url, add):
     # Process HTML page
     page = requests.get(url, headers=headers)
     bs = BeautifulSoup(page.content, 'html.parser')
@@ -68,23 +87,67 @@ def process_page(url):
 
     print(f'{title_text}           {price_text}     {status}')
 
-    # Post a message on Discord via Bot
+    if add:
+        return [title_text, price_text, url, status]
 
 
 def discord_post(title, url):
+    # Post a message on Discord via Bot
     webhook = Webhook.from_url(WEBHOOK, adapter=RequestsWebhookAdapter())
     webhook.send(f"@everyone {title}\n{url}")
 
-    # load product list from the .txt file
+
+def add_products():
+    while True:
+        new_product = input('Copy/Paste an URL of a product: ')
+        new_info = process_page(new_product, True)
+
+        with open(file_name, 'r+', newline='') as csvfile:
+            next(csvfile)
+            filewriter = csv.writer(csvfile)
+            filewriter.writerow([new_info[0], new_info[1], new_info[2], new_info[3]])
+            csvfile.close()
+
+        choice = input("Would you want to add more? Y/N: ")
+        if choice.lower() == 'y':
+            continue
+        else:
+            load_products()
+            break
+    menu()
+
+
+def remove_products():
+    item = 0
+    for products in product_list.items():
+        print(f'{item} - {products}')
+        item += 1
+    pass
 
 
 def load_products():
-    doc = open('BB_list.txt')
-    products = doc.read()
-    products = products.split('\n')
-    product_list.append(products)
-    return products
-
+    # Create a new .csv file if it does not exist
+    if not os.path.exists(file_name):
+        with open(file_name, 'w') as csvfile:
+            columns = ['Product Name', 'Price', 'URL', 'Availability']
+            writer = csv.DictWriter(csvfile, fieldnames=columns)
+            writer.writeheader()
+            #filewriter = csv.writer(
+                #csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+            #filewriter.writerow(
+            csvfile.close()
+                
+    # Load products from .csv file
+    else:
+        with open(file_name) as csvfile:
+            reader = csv.reader(csvfile)
+            row_count = sum(1 for row in reader)
+            if row_count <= 1:
+                return
+            next(reader)
+            for line in reader:
+                product_list[line[0]].extend([line[1], line[2], line[3]])
+            csvfile.close()
 
 if __name__ == '__main__':
     main()
