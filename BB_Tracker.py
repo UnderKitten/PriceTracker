@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 import concurrent.futures
 
 # Product Title = productName_3nyxM
-product_list = {}
+product_dict = {}
 file_name = 'BB_list.csv'
 
 load_dotenv()
@@ -30,9 +30,9 @@ def main():
     menu()
 
 
-
 def menu():
     # Main Menu
+    print('')
     print("Welcome to Best Buy CA price tracker")
     print("Please choose one of the options")
     menu_options = "A - Add products to the tracking list\nR - Delete products from the menu list\nS - Start tracking\nAny other key - Exit the script\nYour option: "
@@ -41,7 +41,7 @@ def menu():
     if option == 'a':
         add_products()
     elif option == 'r':
-        pass
+        remove_products()
     elif option == 's':
         pass
     else:
@@ -52,7 +52,7 @@ def access_url():
     # Let's access URLs
     while True:
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            executor.map(process_page, product_list)
+            executor.map(process_page, product_dict)
         time.sleep(5)
         print('--------------------------------------------------------------------')
 
@@ -98,31 +98,40 @@ def discord_post(title, url):
 
 
 def add_products():
-    while True:
-        new_product = input('Copy/Paste an URL of a product: ')
-        new_info = process_page(new_product, True)
-
-        with open(file_name, 'r+', newline='') as csvfile:
-            next(csvfile)
-            filewriter = csv.writer(csvfile)
-            filewriter.writerow([new_info[0], new_info[1], new_info[2], new_info[3]])
-            csvfile.close()
-
-        choice = input("Would you want to add more? Y/N: ")
-        if choice.lower() == 'y':
-            continue
-        else:
-            load_products()
-            break
+    print('')
+    with open(file_name, 'r+', newline='') as csvfile:
+        next(csvfile)
+        filewriter = csv.writer(csvfile)
+        while True:
+            new_product = input(
+                'Copy/Paste an URL of a product (Exit for exit): ')
+            new_product = new_product.lower()
+            if new_product == 'exit':
+                break
+            new_info = process_page(new_product, True)
+            #filewriter.writerow(["Info", "Info", "Info", "Info"])
+            filewriter.writerow(
+                [new_info[0], new_info[1], new_info[2], new_info[3]])
+        csvfile.close()
     menu()
 
 
 def remove_products():
+    print('')
     item = 0
-    for products in product_list.items():
-        print(f'{item} - {products}')
+    for product in product_dict.keys():
+        print(f'{item} - {product}')
         item += 1
-    pass
+    remove_choice = input("Which product would you like to remove? - ")
+    if remove_choice == 'exit':
+        menu()
+        return
+
+    product_list = list(product_dict)
+    print(product_list[int(remove_choice)])
+    product_dict.pop(product_list[int(remove_choice)])
+
+    menu()
 
 
 def load_products():
@@ -132,22 +141,20 @@ def load_products():
             columns = ['Product Name', 'Price', 'URL', 'Availability']
             writer = csv.DictWriter(csvfile, fieldnames=columns)
             writer.writeheader()
-            #filewriter = csv.writer(
-                #csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
-            #filewriter.writerow(
             csvfile.close()
-                
     # Load products from .csv file
     else:
         with open(file_name) as csvfile:
-            reader = csv.reader(csvfile)
-            row_count = sum(1 for row in reader)
-            if row_count <= 1:
-                return
+            reader = csv.reader(csvfile, delimiter=',')
+
             next(reader)
-            for line in reader:
-                product_list[line[0]].extend([line[1], line[2], line[3]])
+            next(reader)
+
+            global product_dict
+            product_dict = {rows[0]: [rows[1], rows[2], rows[3]]
+                            for rows in reader}
             csvfile.close()
+
 
 if __name__ == '__main__':
     main()
