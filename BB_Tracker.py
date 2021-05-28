@@ -1,4 +1,5 @@
 # python D:\python\PriceTracker\BB_Tracker.py
+from os import read, write
 import requests
 import os.path
 import csv
@@ -10,11 +11,13 @@ import concurrent.futures
 
 # Product Title = productName_3nyxM
 product_dict = {}
+urls = []
 file_name = 'BB_list.csv'
 
 load_dotenv()
 WEBHOOK = os.getenv('DISCORD_WEBHOOK')
-DIR = os.getenv('DIR')
+DIR = os.getenv('DIR')  # D:\python\PriceTracker
+# Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36
 USER_AGENT = os.getenv('USER_AGENT')
 os.chdir(DIR)
 
@@ -43,7 +46,7 @@ def menu():
     elif option == 'r':
         remove_products()
     elif option == 's':
-        pass
+        access_url()
     else:
         exit()
 
@@ -52,12 +55,12 @@ def access_url():
     # Let's access URLs
     while True:
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            executor.map(process_page, product_dict)
+            executor.map(process_page, urls)
         time.sleep(5)
         print('--------------------------------------------------------------------')
 
 
-def process_page(url, add):
+def process_page(url):
     # Process HTML page
     page = requests.get(url, headers=headers)
     bs = BeautifulSoup(page.content, 'html.parser')
@@ -87,8 +90,7 @@ def process_page(url, add):
 
     print(f'{title_text}           {price_text}     {status}')
 
-    if add:
-        return [title_text, price_text, url, status]
+    return [title_text, price_text, url, status]
 
 
 def discord_post(title, url):
@@ -98,25 +100,31 @@ def discord_post(title, url):
 
 
 def add_products():
-    print('')
+    while True:
+        new_product = input(
+            'Copy/Paste an URL of a product (Exit for exit): ')
+        new_product = new_product.lower()
+        if new_product == 'exit':
+            menu()
+            break
+        else:
+            add_products_in_file(new_product)
+
+
+def add_products_in_file(url):
+    # Add new products in csv
     with open(file_name, 'r+', newline='') as csvfile:
         next(csvfile)
         filewriter = csv.writer(csvfile)
-        while True:
-            new_product = input(
-                'Copy/Paste an URL of a product (Exit for exit): ')
-            new_product = new_product.lower()
-            if new_product == 'exit':
-                break
-            new_info = process_page(new_product, True)
-            #filewriter.writerow(["Info", "Info", "Info", "Info"])
-            filewriter.writerow(
-                [new_info[0], new_info[1], new_info[2], new_info[3]])
-        csvfile.close()
-    menu()
+        new_info = process_page(url)
+        product_dict[new_info[0]] = [new_info[1], new_info[2], new_info[3]]
+        urls.append(url)
+        filewriter.writerow(
+            [new_info[0], new_info[1], new_info[2], new_info[3]])
 
 
 def remove_products():
+    # remove products
     print('')
     item = 0
     for product in product_dict.keys():
@@ -126,12 +134,25 @@ def remove_products():
     if remove_choice == 'exit':
         menu()
         return
-
+    remove_choice = int(remove_choice)
     product_list = list(product_dict)
-    print(product_list[int(remove_choice)])
-    product_dict.pop(product_list[int(remove_choice)])
-
+    print(product_list[remove_choice])
+    product_dict.pop(product_list[remove_choice])
+    urls.pop(remove_choice)
+    update_file()
     menu()
+
+
+def update_file():
+    # Update .csv file
+    with open(file_name, 'w') as csvfile:
+        columns = ['Product Name', 'Price', 'URL', 'Availability']
+        writer = csv.DictWriter(csvfile, fieldnames=columns)
+        writer.writeheader()
+        writer = csv.writer(csvfile)
+        for key, value in product_dict.items():
+            writer.writerow(
+                [key, value[0], value[1], value[2]])
 
 
 def load_products():
@@ -141,7 +162,6 @@ def load_products():
             columns = ['Product Name', 'Price', 'URL', 'Availability']
             writer = csv.DictWriter(csvfile, fieldnames=columns)
             writer.writeheader()
-            csvfile.close()
     # Load products from .csv file
     else:
         with open(file_name) as csvfile:
@@ -153,7 +173,8 @@ def load_products():
             global product_dict
             product_dict = {rows[0]: [rows[1], rows[2], rows[3]]
                             for rows in reader}
-            csvfile.close()
+    for k, v in product_dict.items():
+        urls.append(v[1])
 
 
 if __name__ == '__main__':
