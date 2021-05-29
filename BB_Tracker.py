@@ -12,8 +12,11 @@ import concurrent.futures
 # Product Title = productName_3nyxM
 product_dict = {}
 urls = []
+snoozed_list = []
 file_name = 'BB_list.csv'
 
+disc_post = False
+DELAY = 11
 load_dotenv()
 WEBHOOK = os.getenv('DISCORD_WEBHOOK')
 DIR = os.getenv('DIR')  # D:\python\PriceTracker
@@ -28,13 +31,12 @@ headers = {
 def main():
     # Load URL List of products
     load_products()
-    # time.sleep(2)
-    # access_url()
     menu()
 
 
 def menu():
     # Main Menu
+    global disc_post
     print('')
     print("Welcome to Best Buy CA price tracker")
     print("Please choose one of the options")
@@ -46,10 +48,17 @@ def menu():
     elif option == 'r':
         remove_products()
     elif option == 's':
+        disc_post = True
         access_url()
     else:
         exit()
 
+def snooze():
+    global disc_post
+    disc_post = False    
+    time.sleep(DELAY)
+    snoozed_list.clear()
+    disc_post = True
 
 def access_url():
     # Let's access URLs
@@ -80,7 +89,10 @@ def process_page(url):
     # Check if a product is available or out of stock
     if product_availability_text == "available to ship":
         status = "Available to Ship"
-        discord_post(title_text, url)
+        if disc_post == True:
+            if title_text not in snoozed_list:
+                snoozed_list.append(title_text)
+                discord_post(title_text, url)
     elif product_availability_text == "coming soon":
         status = "Coming Soon"
     elif product_availability_text == "sold out online":
@@ -145,11 +157,13 @@ def remove_products():
 
 def update_file():
     # Update .csv file
-    with open(file_name, 'w') as csvfile:
+    with open(file_name, 'r+', newline='') as csvfile:
+        csvfile.truncate()
         columns = ['Product Name', 'Price', 'URL', 'Availability']
         writer = csv.DictWriter(csvfile, fieldnames=columns)
         writer.writeheader()
         writer = csv.writer(csvfile)
+        writer.writerow('')
         for key, value in product_dict.items():
             writer.writerow(
                 [key, value[0], value[1], value[2]])
